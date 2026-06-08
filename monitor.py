@@ -47,6 +47,10 @@ FAMILIES = [
     {"key": "FS-ST-?", "label": "FS ST ?  (single-digit number)",       "mode": "numbers", "letters": "ST"},
     {"key": "FS-KO-?", "label": "FS KO ?  (single-digit number)",       "mode": "numbers", "letters": "KO"},
     {"key": "FS-RT-?", "label": "FS RT ?  (single-digit number)",       "mode": "numbers", "letters": "RT"},
+    {"key": "FS-OO-?", "label": "FS OO ?  (single-digit number)",       "mode": "numbers", "letters": "OO"},
+    {"key": "FS-ZZ-?", "label": "FS ZZ ?  (single-digit number)",       "mode": "numbers", "letters": "ZZ"},
+    {"key": "FS-YY-?", "label": "FS YY ?  (single-digit number)",       "mode": "numbers", "letters": "YY"},
+    {"key": "FS-XX-?", "label": "FS XX ?  (single-digit number)",       "mode": "numbers", "letters": "XX"},
 ]
 
 

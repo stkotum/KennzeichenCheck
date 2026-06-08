@@ -1,6 +1,6 @@
 # FS Wunschkennzeichen watcher (Freising)
 
-Watches **six plate queries** and emails **stephan.kohlhaas@tum.de** when anything changes:
+Watches **ten plate queries** and emails **stephan.kohlhaas@tum.de** + **stkotum@gmail.com** when anything changes:
 
 | Query | Meaning |
 |-------|---------|
@@ -10,16 +10,19 @@ Watches **six plate queries** and emails **stephan.kohlhaas@tum.de** when anythi
 | `FS-ST-?` | letters **ST** + a **single-digit** number (1–9) |
 | `FS-KO-?` | letters **KO** + a **single-digit** number (1–9) |
 | `FS-RT-?` | letters **RT** + a **single-digit** number (1–9) |
+| `FS-OO-?` | letters **OO** + a **single-digit** number (1–9) |
+| `FS-ZZ-?` | letters **ZZ** + a **single-digit** number (1–9) |
+| `FS-YY-?` | letters **YY** + a **single-digit** number (1–9) |
+| `FS-XX-?` | letters **XX** + a **single-digit** number (1–9) |
 
 Only single-digit numbers are considered (never multi-digit). The **first run emails a full
-status report** of all six; **every later run emails only what changed** (newly available / no
-longer available). Single-digit plates are coveted and rarely free, so mostly it just waits.
+status report** of all ten; **every later run emails only what changed** (newly available / no
+longer available, subject prefixed `ALERT:`). Single-digit plates are coveted and rarely free, so
+mostly it just waits.
 
-### Current status (live, at build time)
-- `FS-??-1`: **none** available.
-- `FS-SK-?`, `FS-KH-?`, `FS-ST-?`: **none** — all of 1–9 taken.
-- `FS-KO-?`: available **4, 5, 6, 8, 9**; still taken (watching) **1, 2, 3, 7**.
-- `FS-RT-?`: **none** single-digit available; all of 1–9 taken.
+### Current status (live, at last update)
+- `FS-KO-?`: available **4, 5, 6, 8, 9** (taken: 1, 2, 3, 7).
+- All other watched pairs (`SK, KH, ST, RT, OO, ZZ, YY, XX`) and `FS-??-1`: **none** — every single digit currently taken.
 
 ## How it works (and what it is not)
 
@@ -28,7 +31,7 @@ longer available). Single-digit plates are coveted and rarely free, so mostly it
   which queries the authority's i-Kfz system (Freising `officeId` `5f17f89ddff4262e1b32f4ed`,
   i-Kfz key `09178000`). The endpoint returns a clean `isAvailable` boolean and, when you leave the
   letters **or** the number blank, the full list of free combinations for the other field.
-- **Each run is just 6 HTTP requests** (one per query) — extremely light and polite. Hourly is no
+- **Each run is just 10 HTTP requests** (one per query) — extremely light and polite. Hourly is no
   problem.
 - **It only notifies; it does not reserve.** When you get an email, reserve it yourself on the
   official portal: <https://www.buergerserviceportal.de/bayern/lkrfreising/igvwkz>
