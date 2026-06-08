@@ -1,0 +1,17 @@
+# Secrets — never commit credentials
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Playwright browser cache (if used locally)
+.cache/
+
+# Local debug artifacts
+*.log
+debug_*.html
+screenshots/
+scout_out/
