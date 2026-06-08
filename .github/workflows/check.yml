@@ -4,7 +4,12 @@ on:
   schedule:
     # GitHub cron is in UTC. ':07' avoids the top-of-hour stampede. Hourly.
     - cron: "7 * * * *"
-  workflow_dispatch: {}   # lets you trigger a run manually from the Actions tab
+  workflow_dispatch:      # lets you trigger a run manually from the Actions tab
+    inputs:
+      report:
+        description: "Send a full status report (not just changes)"
+        type: boolean
+        default: false
 
 # Never run two sweeps at once (a sweep takes ~8 min).
 concurrency:
@@ -34,7 +39,7 @@ jobs:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           ALERT_TO: ${{ secrets.ALERT_TO }}
-        run: python monitor.py
+        run: python monitor.py ${{ github.event.inputs.report == 'true' && '--report' || '' }}
 
       - name: Persist state (also acts as an hourly heartbeat)
         shell: bash

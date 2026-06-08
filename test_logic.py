@@ -95,14 +95,16 @@ def test_email_formatting():
         {"label": "FS ?? 1", "mode": "letters", "available": [], "taken_single": None},
         {"label": "FS KO ?", "mode": "numbers", "available": ["FS-KO-4"], "taken_single": ["FS-KO-1"]},
     ])
-    assert captured["to"] == "stephan.kohlhaas@tum.de", captured
+    assert "stephan.kohlhaas@tum.de" in captured["to"] and "stkotum@gmail.com" in captured["to"], captured
     assert "FS-KO-4" in captured["body"] and "FS-KO-1" in captured["body"]
     assert "buergerserviceportal" in captured["body"]
     print("report email OK:", captured["subject"])
 
     notify.send_changes([{"label": "FS ?? 1", "new": ["FS-SK-1"], "gone": []}])
     assert "FS-SK-1" in captured["body"]
-    assert "newly available" in captured["subject"]
+    assert captured["subject"].startswith("ALERT") and "newly available" in captured["subject"]
+    # subject + body must be pure ASCII (no emoji) so strict filters don't quarantine
+    captured["subject"].encode("ascii"); captured["body"].encode("ascii")
     print("change email OK:", captured["subject"])
 
 
