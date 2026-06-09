@@ -1,6 +1,35 @@
 {
-  "initialized": false,
-  "families": {},
-  "last_run": null,
-  "runs": 0
+  "initialized": true,
+  "families": {
+    "FS-??-1": [],
+    "FS-SK-?": [],
+    "FS-KH-?": [],
+    "FS-ST-?": [],
+    "FS-KO-?": [
+      "FS-KO-4",
+      "FS-KO-5",
+      "FS-KO-6",
+      "FS-KO-8",
+      "FS-KO-9"
+    ],
+    "FS-RT-?": [],
+    "FS-OO-?": [],
+    "FS-ZZ-?": [],
+    "FS-YY-?": [],
+    "FS-XX-?": [],
+    "ES-AZ-?": [],
+    "ES-EH-?": [],
+    "ES-HN-?": [],
+    "NT-AZ-?": [],
+    "NT-EH-?": [
+      "NT-EH-9"
+    ],
+    "NT-HN-?": [
+      "NT-HN-6",
+      "NT-HN-7",
+      "NT-HN-9"
+    ]
+  },
+  "last_run": "2026-06-09T12:06:54.346239+00:00",
+  "runs": 1
 }
