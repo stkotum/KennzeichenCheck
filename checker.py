@@ -1,13 +1,11 @@
-"""Availability checker against the confirmed live endpoint.
-
-Endpoint (reverse-engineered from the official Freising checker on
-wunschkennzeichen-reservieren.jetzt, which queries the authority's i-Kfz system):
+"""Availability checker against the live endpoint, for ANY district/office.
 
   POST https://backend.wunschkennzeichen-reservieren.jetzt/reservation-checks
-  body: {"plateQuery": {... city/letters/numbers ...}, "officeId": "<Freising>", ...}
+  body: {"plateQuery": {city/letters/numbers ...}, "officeId": "<office>", ...}
   ->    {... "isAvailable": <bool>, "plates": [<available plates>] ...}
 
-No authentication, no browser, no special headers required (verified).
+No authentication / browser needed. City + officeId default to Freising so existing
+FS calls keep working unchanged; pass city/office_id for other districts.
 """
 
 import datetime
@@ -17,10 +15,8 @@ import random
 import requests
 
 ENDPOINT = "https://backend.wunschkennzeichen-reservieren.jetzt/reservation-checks"
-OFFICE_ID = "5f17f89ddff4262e1b32f4ed"          # Landkreis Freising (i-Kfz key 09178000)
+FS_OFFICE = "5f17f89ddff4262e1b32f4ed"          # Landkreis Freising (i-Kfz key 09178000)
 SITE = "https://wunschkennzeichen-reservieren.jetzt"
-# The official portal where the user actually reserves once a plate is free:
-RESERVE_URL = "https://www.buergerserviceportal.de/bayern/lkrfreising/igvwkz"
 
 DEFAULT_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
               "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
@@ -42,113 +38,62 @@ def new_session():
     return s
 
 
-def _payload(letters, numbers):
+def _payload(letters, numbers, city="FS", office_id=FS_OFFICE):
     return {
         "plateQuery": {
-            "suggestionMethod": "all",
-            "city": "FS",
-            "letters": letters,
-            "numbers": numbers,
-            "option": "standard",
-            "vehicle": "car",
-            "seasonFrom": 4,
-            "seasonTo": 10,
-            "size": "520x110",
+            "suggestionMethod": "all", "city": city, "letters": letters,
+            "numbers": numbers, "option": "standard", "vehicle": "car",
+            "seasonFrom": 4, "seasonTo": 10, "size": "520x110",
         },
-        "plates": [],
-        "status": "loading",
-        "officeId": OFFICE_ID,
+        "plates": [], "status": "loading", "officeId": office_id,
         "timestamp": datetime.datetime.now(datetime.timezone.utc)
         .isoformat().replace("+00:00", "Z"),
         "loadingValue": 2,
     }
 
 
-def available_numbers(letters, session=None, retries=3):
-    """Return the sorted list of ALL currently-available numbers for FS-<letters>-?.
-
-    One request: an empty `numbers` with suggestionMethod 'all' makes the backend
-    enumerate every free number for that letter pair (e.g. ['4','5','6','8',...]).
-    Raises Blocked on 403/429; retries transient errors.
-    """
+def _post(session, letters, numbers, city, office_id, retries, timeout=25):
     sess = session or new_session()
-    last_err = None
+    last = None
     for attempt in range(retries):
         try:
-            r = sess.post(ENDPOINT, json=_payload(letters, ""), timeout=25)
+            r = sess.post(ENDPOINT, json=_payload(letters, numbers, city, office_id), timeout=timeout)
             if r.status_code in (403, 429):
-                raise Blocked(f"HTTP {r.status_code} for FS-{letters}-?")
+                raise Blocked(f"HTTP {r.status_code} for {city}-{letters}-{numbers}")
             if r.status_code >= 500:
                 raise requests.HTTPError(f"HTTP {r.status_code}")
-            data = r.json()
-            nums = [str(p.get("numbers")) for p in (data.get("plates") or []) if p.get("numbers")]
-            return sorted(set(nums), key=lambda n: int(n))
+            return r.json()
         except Blocked:
             raise
         except Exception as e:  # noqa: BLE001
-            last_err = e
+            last = e
             if attempt < retries - 1:
                 time.sleep(1.5 * (attempt + 1) + random.uniform(0, 0.5))
-    raise RuntimeError(f"available_numbers failed for FS-{letters}-?: {last_err}")
+    raise RuntimeError(f"request failed for {city}-{letters}-{numbers}: {last}")
 
 
-def available_letters(numbers, session=None, retries=3):
-    """Return the sorted list of available LETTER pairs for FS-?-<numbers> (one request).
-
-    Mirror of available_numbers: an empty `letters` enumerates every free letter pair
-    for the given number (e.g. numbers='1' -> the letter pairs whose 'number 1' plate is
-    free). Note: the backend's suggestion list appears to cap at ~96 entries, which is
-    irrelevant for coveted single-digit numbers (only a handful are ever free at once).
-    Raises Blocked on 403/429; retries transient errors.
-    """
-    sess = session or new_session()
-    last_err = None
-    for attempt in range(retries):
-        try:
-            r = sess.post(ENDPOINT, json=_payload("", numbers), timeout=25)
-            if r.status_code in (403, 429):
-                raise Blocked(f"HTTP {r.status_code} for FS-?-{numbers}")
-            if r.status_code >= 500:
-                raise requests.HTTPError(f"HTTP {r.status_code}")
-            data = r.json()
-            pairs = [str(p.get("letters")) for p in (data.get("plates") or []) if p.get("letters")]
-            return sorted(set(pairs))
-        except Blocked:
-            raise
-        except Exception as e:  # noqa: BLE001
-            last_err = e
-            if attempt < retries - 1:
-                time.sleep(1.5 * (attempt + 1) + random.uniform(0, 0.5))
-    raise RuntimeError(f"available_letters failed for FS-?-{numbers}: {last_err}")
+def available_numbers(letters, session=None, retries=3, city="FS", office_id=FS_OFFICE):
+    """All currently-available numbers for <city>-<letters>-? (one request, ikfz offices)."""
+    data = _post(session, letters, "", city, office_id, retries)
+    nums = [str(p.get("numbers")) for p in (data.get("plates") or []) if p.get("numbers")]
+    return sorted(set(nums), key=lambda n: int(n))
 
 
-def check_plate(letters, numbers="1", session=None, retries=3):
-    """Return (available: bool, plates: list[dict]) for FS-<letters>-<numbers>.
+def available_letters(numbers, session=None, retries=3, city="FS", office_id=FS_OFFICE):
+    """All available letter pairs for <city>-?-<numbers> (one request, ikfz offices)."""
+    data = _post(session, "", numbers, city, office_id, retries)
+    pairs = [str(p.get("letters")) for p in (data.get("plates") or []) if p.get("letters")]
+    return sorted(set(pairs))
 
-    Raises Blocked on 403/429. Retries transient errors (timeouts, 5xx) with backoff.
-    """
-    sess = session or new_session()
-    last_err = None
-    for attempt in range(retries):
-        try:
-            r = sess.post(ENDPOINT, json=_payload(letters, numbers), timeout=20)
-            if r.status_code in (403, 429):
-                raise Blocked(f"HTTP {r.status_code} for FS-{letters}-{numbers}")
-            if r.status_code >= 500:
-                raise requests.HTTPError(f"HTTP {r.status_code}")
-            data = r.json()
-            return bool(data.get("isAvailable")), data.get("plates") or []
-        except Blocked:
-            raise
-        except Exception as e:  # noqa: BLE001 - transient network/5xx
-            last_err = e
-            if attempt < retries - 1:
-                time.sleep(1.5 * (attempt + 1) + random.uniform(0, 0.5))
-    raise RuntimeError(f"check_plate failed for FS-{letters}-{numbers}: {last_err}")
+
+def check_plate(letters, numbers="1", session=None, retries=3, city="FS", office_id=FS_OFFICE):
+    """(available: bool, plates: list) for one specific <city>-<letters>-<numbers>.
+    Works for every office type (use this for intelliform offices where wildcards fail)."""
+    data = _post(session, letters, numbers, city, office_id, retries, timeout=20)
+    return bool(data.get("isAvailable")), data.get("plates") or []
 
 
 if __name__ == "__main__":
     s = new_session()
-    for letters, num in [("XY", "1"), ("JW", "246")]:
-        avail, plates = check_plate(letters, num, session=s)
-        print(f"FS-{letters}-{num}: available={avail} plates={plates}")
+    print("FS-XY-1:", check_plate("XY", "1", session=s))
+    print("NT-HN-9:", check_plate("HN", "9", session=s, city="NT", office_id="5f17f89ddff4262e1b32f62a"))

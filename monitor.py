@@ -1,21 +1,17 @@
-"""Watch three FS Wunschkennzeichen queries and email on changes.
+"""Watch FS + ES/NT Wunschkennzeichen queries and email on changes.
 
-Queries (all single-digit numbers only, per request):
-  FS-??-1   any two letters + the number 1        (the rare "dream" plate)
-  FS-KO-?   letters KO + a single-digit number 1..9
-  FS-RT-?   letters RT + a single-digit number 1..9
+Districts / offices:
+  FS (Freising)            office 5f17f89ddff4262e1b32f4ed  (i-Kfz; wildcard enumeration works)
+  ES (Esslingen)           office 5f17f89ddff4262e1b32f4da  (per-digit probe)
+  NT (Nuertingen)          office 5f17f89ddff4262e1b32f62a  (per-digit probe)
 
-Each query is a SINGLE backend request (letters- or number-wildcard enumeration),
-so a full run is just 3 requests — very light, polite, and fast.
+Recipients (per group):
+  FS plates   -> owner only            (stephan.kohlhaas@tum.de, stkotum@gmail.com)
+  ES/NT plates-> owner + Emil Hennrich (emil.hennrich@gmx.net)
 
-Behaviour:
-  * First ever run (state not initialised) OR `--report`: emails a FULL status report
-    and stores it as the baseline.
-  * Every later run: emails only the CHANGES (newly available / no longer available)
-    versus the stored baseline. No change -> no email.
-
-Config via env vars (all optional): STATE_FILE, DRY_RUN, plus the GMAIL_* / ALERT_TO
-used by notify.py.
+First run (state not initialised) OR --report: emails a FULL status report (current
+availability) to each audience. Every later run: emails only CHANGES, subject 'ALERT:'.
+All single-digit numbers only.
 """
 
 import argparse
@@ -26,8 +22,7 @@ import time
 import datetime
 import pathlib
 
-# Robust stdout for non-ASCII on Windows consoles (cp1252) and CI alike.
-for _stream in (sys.stdout, sys.stderr):
+for _stream in (sys.stdout, sys.stderr):       # robust non-ASCII on Windows / CI
     try:
         _stream.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
@@ -40,18 +35,47 @@ STATE_FILE = pathlib.Path(os.environ.get("STATE_FILE", "state.json"))
 DRY_RUN = os.environ.get("DRY_RUN", "").lower() in ("1", "true", "yes")
 SINGLE_DIGITS = [str(d) for d in range(1, 10)]
 
+FS_OFFICE = "5f17f89ddff4262e1b32f4ed"
+ES_OFFICE = "5f17f89ddff4262e1b32f4da"
+NT_OFFICE = "5f17f89ddff4262e1b32f62a"
+
+
+def _fam(key, label, group, mode, city, office, **kw):
+    return {"key": key, "label": label, "group": group, "mode": mode,
+            "city": city, "office": office, **kw}
+
+
 FAMILIES = [
-    {"key": "FS-??-1", "label": "FS ?? 1  (any two letters, number 1)", "mode": "letters", "number": "1"},
-    {"key": "FS-SK-?", "label": "FS SK ?  (single-digit number)",       "mode": "numbers", "letters": "SK"},
-    {"key": "FS-KH-?", "label": "FS KH ?  (single-digit number)",       "mode": "numbers", "letters": "KH"},
-    {"key": "FS-ST-?", "label": "FS ST ?  (single-digit number)",       "mode": "numbers", "letters": "ST"},
-    {"key": "FS-KO-?", "label": "FS KO ?  (single-digit number)",       "mode": "numbers", "letters": "KO"},
-    {"key": "FS-RT-?", "label": "FS RT ?  (single-digit number)",       "mode": "numbers", "letters": "RT"},
-    {"key": "FS-OO-?", "label": "FS OO ?  (single-digit number)",       "mode": "numbers", "letters": "OO"},
-    {"key": "FS-ZZ-?", "label": "FS ZZ ?  (single-digit number)",       "mode": "numbers", "letters": "ZZ"},
-    {"key": "FS-YY-?", "label": "FS YY ?  (single-digit number)",       "mode": "numbers", "letters": "YY"},
-    {"key": "FS-XX-?", "label": "FS XX ?  (single-digit number)",       "mode": "numbers", "letters": "XX"},
+    # --- Freising (owner only) -------------------------------------------------
+    _fam("FS-??-1", "FS ?? 1  (any two letters, number 1)", "FS", "letters", "FS", FS_OFFICE, number="1"),
+    _fam("FS-SK-?", "FS SK ?  (single-digit)", "FS", "numbers", "FS", FS_OFFICE, letters="SK"),
+    _fam("FS-KH-?", "FS KH ?  (single-digit)", "FS", "numbers", "FS", FS_OFFICE, letters="KH"),
+    _fam("FS-ST-?", "FS ST ?  (single-digit)", "FS", "numbers", "FS", FS_OFFICE, letters="ST"),
+    _fam("FS-KO-?", "FS KO ?  (single-digit)", "FS", "numbers", "FS", FS_OFFICE, letters="KO"),
+    _fam("FS-RT-?", "FS RT ?  (single-digit)", "FS", "numbers", "FS", FS_OFFICE, letters="RT"),
+    _fam("FS-OO-?", "FS OO ?  (single-digit)", "FS", "numbers", "FS", FS_OFFICE, letters="OO"),
+    _fam("FS-ZZ-?", "FS ZZ ?  (single-digit)", "FS", "numbers", "FS", FS_OFFICE, letters="ZZ"),
+    _fam("FS-YY-?", "FS YY ?  (single-digit)", "FS", "numbers", "FS", FS_OFFICE, letters="YY"),
+    _fam("FS-XX-?", "FS XX ?  (single-digit)", "FS", "numbers", "FS", FS_OFFICE, letters="XX"),
+    # --- Esslingen + Nuertingen (owner + Emil) ---------------------------------
+    _fam("ES-AZ-?", "ES AZ ?  (single-digit)", "ESNT", "digits", "ES", ES_OFFICE, letters="AZ"),
+    _fam("ES-EH-?", "ES EH ?  (single-digit)", "ESNT", "digits", "ES", ES_OFFICE, letters="EH"),
+    _fam("ES-HN-?", "ES HN ?  (single-digit)", "ESNT", "digits", "ES", ES_OFFICE, letters="HN"),
+    _fam("NT-AZ-?", "NT AZ ?  (single-digit)", "ESNT", "digits", "NT", NT_OFFICE, letters="AZ"),
+    _fam("NT-EH-?", "NT EH ?  (single-digit)", "ESNT", "digits", "NT", NT_OFFICE, letters="EH"),
+    _fam("NT-HN-?", "NT HN ?  (single-digit)", "ESNT", "digits", "NT", NT_OFFICE, letters="HN"),
 ]
+
+OWNER = ["stephan.kohlhaas@tum.de", "stkotum@gmail.com"]
+EMIL = ["emil.hennrich@gmx.net"]
+AUDIENCES = [
+    {"name": "owner", "recipients": OWNER, "groups": {"FS", "ESNT"}},   # everything
+    {"name": "emil", "recipients": EMIL, "groups": {"ESNT"}},           # ES/NT only
+]
+
+
+def _num_of(plate):
+    return int(plate.rsplit("-", 1)[1])
 
 
 def load_state():
@@ -63,112 +87,119 @@ def load_state():
     return {"initialized": False, "families": {}, "last_run": None, "runs": 0}
 
 
-def save_state(families, initialized):
+def save_state(families):
     prev = load_state()
     STATE_FILE.write_text(json.dumps({
-        "initialized": initialized,
-        "families": families,
+        "initialized": True, "families": families,
         "last_run": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "runs": prev.get("runs", 0) + 1,
     }, indent=2), encoding="utf-8")
 
 
-def _num_of(plate):
-    return int(plate.rsplit("-", 1)[1])
+def _family_available(fam, session):
+    c, o = fam["city"], fam["office"]
+    if fam["mode"] == "letters":
+        pairs = checker.available_letters(fam["number"], session=session, city=c, office_id=o)
+        return sorted(f"{c}-{p}-{fam['number']}" for p in pairs)
+    if fam["mode"] == "numbers":          # ikfz wildcard, filter single-digit
+        nums = [n for n in checker.available_numbers(fam["letters"], session=session, city=c, office_id=o)
+                if n in SINGLE_DIGITS]
+        return sorted((f"{c}-{fam['letters']}-{n}" for n in nums), key=_num_of)
+    if fam["mode"] == "digits":           # per-digit probe (intelliform offices)
+        free = []
+        for d in SINGLE_DIGITS:
+            ok, _ = checker.check_plate(fam["letters"], d, session=session, city=c, office_id=o)
+            if ok:
+                free.append(d)
+            time.sleep(0.3)
+        return sorted((f"{c}-{fam['letters']}-{d}" for d in free), key=_num_of)
+    raise ValueError(fam["mode"])
 
 
 def sweep():
-    """Return {family_key: sorted[plate strings]} or None if any query failed/blocked."""
     session = checker.new_session()
     result = {}
     for fam in FAMILIES:
         try:
-            if fam["mode"] == "letters":
-                pairs = checker.available_letters(fam["number"], session=session)
-                plates = sorted(f"FS-{p}-{fam['number']}" for p in pairs)
-            else:  # numbers, single-digit only
-                nums = [n for n in checker.available_numbers(fam["letters"], session=session)
-                        if n in SINGLE_DIGITS]
-                plates = sorted((f"FS-{fam['letters']}-{n}" for n in nums), key=_num_of)
+            plates = _family_available(fam, session)
             result[fam["key"]] = plates
-            print(f"  {fam['key']}: {len(plates)} available -> {plates if plates else '—'}", flush=True)
+            print(f"  {fam['key']}: {len(plates)} available -> {plates if plates else '-'}", flush=True)
         except checker.Blocked as e:
-            print(f"  ! blocked: {e} — sweep inconclusive, state untouched.", flush=True)
+            print(f"  ! blocked: {e} -- sweep inconclusive, state untouched.", flush=True)
             return None
         except Exception as e:  # noqa: BLE001
-            print(f"  ! error on {fam['key']}: {e} — sweep inconclusive, state untouched.", flush=True)
+            print(f"  ! error on {fam['key']}: {e} -- sweep inconclusive, state untouched.", flush=True)
             return None
-        time.sleep(1.0)  # tiny courtesy gap between the 3 requests
+        time.sleep(0.6)
     return result
 
 
-def build_report_snapshot(current):
+def snapshot_for(current, fams):
     snap = []
-    for fam in FAMILIES:
+    for fam in fams:
         avail = current.get(fam["key"], [])
-        entry = {"label": fam["label"], "mode": fam["mode"], "available": avail, "taken_single": None}
-        if fam["mode"] == "numbers":
+        entry = {"label": fam["label"], "available": avail, "taken_single": None}
+        if fam["mode"] in ("numbers", "digits"):
             free = {_num_of(p) for p in avail}
-            entry["taken_single"] = [f"FS-{fam['letters']}-{d}" for d in range(1, 10) if d not in free]
+            entry["taken_single"] = [f"{fam['city']}-{fam['letters']}-{d}" for d in range(1, 10) if d not in free]
         snap.append(entry)
     return snap
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--report", action="store_true", help="force a full status report email + re-baseline")
-    ap.add_argument("--dry-run", action="store_true", help="never send email; just print")
-    ap.add_argument("--test-email", action="store_true", help="send a credentials test email and exit")
-    args = ap.parse_args()
-
-    if args.test_email:
-        notify.send_test()
-        return
-
-    dry = DRY_RUN or args.dry_run
-    print(f"=== FS plate watch === {datetime.datetime.now().isoformat(timespec='seconds')} (dry_run={dry})")
-
-    state = load_state()
-    prev = state.get("families", {})
-    current = sweep()
-    if current is None:
-        sys.exit(0)  # inconclusive; leave state alone
-
-    want_report = args.report or not state.get("initialized")
-
-    if want_report:
-        print("Sending FULL status report (baseline).")
-        snap = build_report_snapshot(current)
-        if dry:
-            for s in snap:
-                print(f"  [{s['label']}] available={s['available']} taken_single={s['taken_single']}")
-            print("(dry-run: report email NOT sent, state NOT saved)")
-        else:
-            notify.send_report(snap)
-            save_state(current, initialized=True)
-        return
-
-    # Change mode: diff each family vs baseline.
-    changes = []
-    for fam in FAMILIES:
+def changes_for(current, prev, fams):
+    out = []
+    for fam in fams:
         cur = set(current.get(fam["key"], []))
         old = set(prev.get(fam["key"], []))
         new = sorted(cur - old, key=lambda p: (len(p), p))
         gone = sorted(old - cur, key=lambda p: (len(p), p))
         if new or gone:
-            changes.append({"label": fam["label"], "new": new, "gone": gone})
-            print(f"  CHANGE {fam['key']}: new={new} gone={gone}")
+            out.append({"label": fam["label"], "new": new, "gone": gone})
+    return out
 
-    if changes:
-        if dry:
-            print("(dry-run: change email NOT sent)")
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--report", action="store_true", help="force a full status report + re-baseline")
+    ap.add_argument("--dry-run", action="store_true", help="never send email; just print")
+    ap.add_argument("--test-email", action="store_true", help="send a credentials test to the owner and exit")
+    args = ap.parse_args()
+
+    if args.test_email:
+        notify.send_test(OWNER)
+        return
+
+    dry = DRY_RUN or args.dry_run
+    print(f"=== Kennzeichen watch === {datetime.datetime.now().isoformat(timespec='seconds')} (dry_run={dry})")
+
+    state = load_state()
+    prev = state.get("families", {})
+    current = sweep()
+    if current is None:
+        sys.exit(0)
+
+    want_report = args.report or not state.get("initialized")
+
+    for aud in AUDIENCES:
+        fams = [f for f in FAMILIES if f["group"] in aud["groups"]]
+        if want_report:
+            snap = snapshot_for(current, fams)
+            print(f"[{aud['name']}] full report -> {aud['recipients']}")
+            if not dry:
+                notify.send_report(snap, aud["recipients"])
         else:
-            notify.send_changes(changes)
-    else:
-        print("No changes since last run.")
+            ch = changes_for(current, prev, fams)
+            if ch:
+                print(f"[{aud['name']}] {len(ch)} changed families -> {aud['recipients']}")
+                if not dry:
+                    notify.send_changes(ch, aud["recipients"])
+            else:
+                print(f"[{aud['name']}] no changes")
 
     if not dry:
-        save_state(current, initialized=True)
+        save_state(current)
+    else:
+        print("(dry-run: no email sent, state NOT saved)")
 
 
 if __name__ == "__main__":

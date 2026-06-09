@@ -1,23 +1,6 @@
 {
-  "initialized": true,
-  "families": {
-    "FS-??-1": [],
-    "FS-SK-?": [],
-    "FS-KH-?": [],
-    "FS-ST-?": [],
-    "FS-KO-?": [
-      "FS-KO-4",
-      "FS-KO-5",
-      "FS-KO-6",
-      "FS-KO-8",
-      "FS-KO-9"
-    ],
-    "FS-RT-?": [],
-    "FS-OO-?": [],
-    "FS-ZZ-?": [],
-    "FS-YY-?": [],
-    "FS-XX-?": []
-  },
-  "last_run": "2026-06-09T08:39:15.055361+00:00",
-  "runs": 9
+  "initialized": false,
+  "families": {},
+  "last_run": null,
+  "runs": 0
 }
