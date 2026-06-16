@@ -57,13 +57,13 @@ FAMILIES = [
     _fam("FS-ZZ-?", "FS ZZ ?  (single-digit)", "FS", "numbers", "FS", FS_OFFICE, letters="ZZ"),
     _fam("FS-YY-?", "FS YY ?  (single-digit)", "FS", "numbers", "FS", FS_OFFICE, letters="YY"),
     _fam("FS-XX-?", "FS XX ?  (single-digit)", "FS", "numbers", "FS", FS_OFFICE, letters="XX"),
-    # --- Esslingen + Nuertingen (owner + Emil) ---------------------------------
-    _fam("ES-AZ-?", "ES AZ ?  (single-digit)", "ESNT", "digits", "ES", ES_OFFICE, letters="AZ"),
-    _fam("ES-EH-?", "ES EH ?  (single-digit)", "ESNT", "digits", "ES", ES_OFFICE, letters="EH"),
-    _fam("ES-HN-?", "ES HN ?  (single-digit)", "ESNT", "digits", "ES", ES_OFFICE, letters="HN"),
-    _fam("NT-AZ-?", "NT AZ ?  (single-digit)", "ESNT", "digits", "NT", NT_OFFICE, letters="AZ"),
-    _fam("NT-EH-?", "NT EH ?  (single-digit)", "ESNT", "digits", "NT", NT_OFFICE, letters="EH"),
-    _fam("NT-HN-?", "NT HN ?  (single-digit)", "ESNT", "digits", "NT", NT_OFFICE, letters="HN"),
+    # --- Esslingen + Nuertingen (owner + Emil) -- NUMBER 1 ONLY -----------------
+    _fam("ES-AZ-1", "ES AZ 1  (number 1)", "ESNT", "digits", "ES", ES_OFFICE, letters="AZ", digits=["1"]),
+    _fam("ES-EH-1", "ES EH 1  (number 1)", "ESNT", "digits", "ES", ES_OFFICE, letters="EH", digits=["1"]),
+    _fam("ES-HN-1", "ES HN 1  (number 1)", "ESNT", "digits", "ES", ES_OFFICE, letters="HN", digits=["1"]),
+    _fam("NT-AZ-1", "NT AZ 1  (number 1)", "ESNT", "digits", "NT", NT_OFFICE, letters="AZ", digits=["1"]),
+    _fam("NT-EH-1", "NT EH 1  (number 1)", "ESNT", "digits", "NT", NT_OFFICE, letters="EH", digits=["1"]),
+    _fam("NT-HN-1", "NT HN 1  (number 1)", "ESNT", "digits", "NT", NT_OFFICE, letters="HN", digits=["1"]),
 ]
 
 OWNER = ["stephan.kohlhaas@tum.de", "stkotum@gmail.com"]
@@ -107,7 +107,7 @@ def _family_available(fam, session):
         return sorted((f"{c}-{fam['letters']}-{n}" for n in nums), key=_num_of)
     if fam["mode"] == "digits":           # per-digit probe (intelliform offices)
         free = []
-        for d in SINGLE_DIGITS:
+        for d in fam.get("digits", SINGLE_DIGITS):
             ok, _ = checker.check_plate(fam["letters"], d, session=session, city=c, office_id=o)
             if ok:
                 free.append(d)
@@ -140,8 +140,10 @@ def snapshot_for(current, fams):
         avail = current.get(fam["key"], [])
         entry = {"label": fam["label"], "available": avail, "taken_single": None}
         if fam["mode"] in ("numbers", "digits"):
+            watched = ([int(d) for d in fam.get("digits", SINGLE_DIGITS)]
+                       if fam["mode"] == "digits" else range(1, 10))
             free = {_num_of(p) for p in avail}
-            entry["taken_single"] = [f"{fam['city']}-{fam['letters']}-{d}" for d in range(1, 10) if d not in free]
+            entry["taken_single"] = [f"{fam['city']}-{fam['letters']}-{d}" for d in watched if d not in free]
         snap.append(entry)
     return snap
 
@@ -163,6 +165,7 @@ def main():
     ap.add_argument("--report", action="store_true", help="force a full status report + re-baseline")
     ap.add_argument("--dry-run", action="store_true", help="never send email; just print")
     ap.add_argument("--test-email", action="store_true", help="send a credentials test to the owner and exit")
+    ap.add_argument("--silent-baseline", action="store_true", help="sweep and save state as baseline WITHOUT emailing")
     args = ap.parse_args()
 
     if args.test_email:
@@ -177,6 +180,11 @@ def main():
     current = sweep()
     if current is None:
         sys.exit(0)
+
+    if args.silent_baseline:
+        save_state(current)
+        print("Silent baseline saved (no email).")
+        return
 
     want_report = args.report or not state.get("initialized")
 

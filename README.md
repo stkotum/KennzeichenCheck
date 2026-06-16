@@ -6,10 +6,10 @@ with **per-recipient routing**:
 | Group | Plates watched | Emailed to |
 |-------|----------------|-----------|
 | **FS** (Freising) | `FS-??-1` (any letters + №1), and single-digit `FS-SK/KH/ST/KO/RT/OO/ZZ/YY/XX-?` | stephan.kohlhaas@tum.de, stkotum@gmail.com |
-| **ES/NT** (Esslingen, Nürtingen) | single-digit `ES-AZ/EH/HN-?` and `NT-AZ/EH/HN-?` | the two above **+ emil.hennrich@gmx.net** |
+| **ES/NT** (Esslingen, Nürtingen) | **number 1 only**: `ES-AZ/EH/HN-1` and `NT-AZ/EH/HN-1` | the two above **+ emil.hennrich@gmx.net** |
 
 Emil only ever receives ES/NT alerts; the FS plates are never sent to him.
-Only **single-digit** numbers are considered. The **first run after (re)deploy emails a full
+FS watches all single-digit numbers; ES/NT watch **number 1 only**. The **first run after (re)deploy emails a full
 status report** (current availability) to each audience; **every later run emails only changes**,
 subject prefixed `ALERT:`.
 
