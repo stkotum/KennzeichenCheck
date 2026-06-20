@@ -83,5 +83,13 @@ def send_test(recipients):
           "If you can read this, the watcher's email credentials work." + FOOTER, recipients)
 
 
+def send_simple(subject, body, recipients):
+    """Generic ASCII email for sibling routines (e.g. the Louvre watcher).
+
+    No Wunschkennzeichen footer — the caller owns the full body.
+    """
+    _send(subject, body, recipients)
+
+
 if __name__ == "__main__":
     send_test([os.environ.get("GMAIL_USER", "")])

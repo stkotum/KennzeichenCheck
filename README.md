@@ -13,6 +13,9 @@ FS watches all single-digit numbers; ES/NT watch **number 1 only**. The **first 
 status report** (current availability) to each audience; **every later run emails only changes**,
 subject prefixed `ALERT:`.
 
+> **Sibling routine:** this repo also runs a **Louvre ticket watcher** (separate
+> workflow + state, same email plumbing, Stephan-only). See **[LOUVRE.md](LOUVRE.md)**.
+
 ## How it works
 - Calls the public availability endpoint (`backend.wunschkennzeichen-reservieren.jetzt/reservation-checks`)
   per district `officeId`. No auth, no browser, ASCII-only emails (so strict filters don't quarantine).

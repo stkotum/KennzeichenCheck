@@ -1,0 +1,56 @@
+name: Louvre ticket watcher
+
+on:
+  schedule:
+    # UTC. ':23,:53' offsets it from the plate watcher (':07') to avoid overlap.
+    - cron: "23,53 * * * *"
+  workflow_dispatch:
+    inputs:
+      report:
+        description: "Send a full status report (not just changes)"
+        type: boolean
+        default: false
+
+# Separate group from the plate watcher so the two routines never block each other.
+concurrency:
+  group: louvre-watcher
+  cancel-in-progress: false
+
+# Needed so the job can commit the updated louvre_state.json back to the repo.
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Run the Louvre watcher
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          # Optional: store a session-bound availability URL here instead of in the repo.
+          LOUVRE_CHECK_URL: ${{ secrets.LOUVRE_CHECK_URL }}
+        run: python louvre_monitor.py ${{ github.event.inputs.report == 'true' && '--report' || '' }}
+
+      - name: Persist Louvre state (also acts as a heartbeat)
+        shell: bash
+        run: |
+          if [[ -n "$(git status --porcelain louvre_state.json)" ]]; then
+            git config user.name  "louvre-watcher"
+            git config user.email "actions@users.noreply.github.com"
+            git add louvre_state.json
+            git commit -m "louvre state update [skip ci]"
+            git push
+          else
+            echo "louvre_state.json unchanged"
+          fi

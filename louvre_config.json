@@ -1,0 +1,18 @@
+{
+  "_comment": "Availability request captured from ticket.louvre.fr DevTools (Network > Fetch/XHR). See LOUVRE.md. Prefer putting a session-bound URL in the LOUVRE_CHECK_URL Actions secret instead of committing it here.",
+
+  "check_url": "PASTE_THE_AVAILABILITY_REQUEST_URL_FROM_DEVTOOLS",
+  "method": "GET",
+  "post_body": null,
+  "headers": {},
+  "request_timeout": 20,
+
+  "target_dates": ["2026-06-26"],
+
+  "detect": {
+    "mode": "auto",
+    "notify_on_date_present": true,
+    "available_contains": [],
+    "unavailable_contains": []
+  }
+}
