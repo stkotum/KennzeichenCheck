@@ -11,7 +11,7 @@ on:
         type: boolean
         default: false
 
-# Never run two sweeps at once (a sweep takes ~8 min).
+# Never run two sweeps at once (a sweep is 7 requests, well under a minute).
 concurrency:
   group: plate-watcher
   cancel-in-progress: false

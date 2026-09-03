@@ -5,11 +5,11 @@ with **per-recipient routing**:
 
 | Group | Plates watched | Emailed to |
 |-------|----------------|-----------|
-| **FS** (Freising) | `FS-??-1` (any letters + №1), and single-digit `FS-SK/KH/ST/KO/RT/OO/ZZ/YY/XX-?` | stephan.kohlhaas@tum.de, stkotum@gmail.com |
+| **FS** (Freising) | **number 1 only**: `FS-SK-1` | stephan.kohlhaas@tum.de, stkotum@gmail.com |
 | **ES/NT** (Esslingen, Nürtingen) | **number 1 only**: `ES-AZ/EH/HN-1` and `NT-AZ/EH/HN-1` | the two above **+ emil.hennrich@gmx.net** |
 
-Emil only ever receives ES/NT alerts; the FS plates are never sent to him.
-FS watches all single-digit numbers; ES/NT watch **number 1 only**. The **first run after (re)deploy emails a full
+Emil only ever receives ES/NT alerts; the FS plate is never sent to him.
+Every family watches **number 1 only** — 7 plates in total. The **first run after (re)deploy emails a full
 status report** (current availability) to each audience; **every later run emails only changes**,
 subject prefixed `ALERT:`.
 
@@ -19,9 +19,10 @@ subject prefixed `ALERT:`.
 ## How it works
 - Calls the public availability endpoint (`backend.wunschkennzeichen-reservieren.jetzt/reservation-checks`)
   per district `officeId`. No auth, no browser, ASCII-only emails (so strict filters don't quarantine).
-- **FS** is an i-Kfz office: one wildcard request enumerates availability per family.
-- **ES/NT** are intelliform offices where wildcards are unreliable, so each pair is probed across
-  digits 1–9 individually. A full run is ~60 light requests — fine hourly.
+- **FS** is an i-Kfz office: one wildcard request enumerates every free number for `FS-SK-?`,
+  of which only `1` is kept.
+- **ES/NT** are intelliform offices where wildcards are unreliable, so each pair is probed
+  directly for number 1. A full run is 7 light requests — fine hourly.
 - It only **notifies**; you reserve on the district's official portal yourself (~2.60 €, 90 days).
 
 ## Office IDs
@@ -40,7 +41,8 @@ subject prefixed `ALERT:`.
 ## Recipients / adding watches
 Recipients and the watch list live at the top of `monitor.py` (`OWNER`, `EMIL`, `AUDIENCES`,
 `FAMILIES`). To add a pair, append a `_fam(...)` entry (mode `numbers` for i-Kfz offices like FS,
-mode `digits` for intelliform offices like ES/NT). To change who gets what, edit `AUDIENCES`.
+mode `digits` for intelliform offices like ES/NT); the `numbers=`/`digits=` list says which digits
+to watch — leave it out to watch all of 1–9. To change who gets what, edit `AUDIENCES`.
 
 ## Run / test
 ```powershell

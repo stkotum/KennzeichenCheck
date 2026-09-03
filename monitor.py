@@ -11,7 +11,7 @@ Recipients (per group):
 
 First run (state not initialised) OR --report: emails a FULL status report (current
 availability) to each audience. Every later run: emails only CHANGES, subject 'ALERT:'.
-All single-digit numbers only.
+Every family watches number 1 only: FS-SK-1 and ES/NT-AZ/EH/HN-1.
 """
 
 import argparse
@@ -46,17 +46,8 @@ def _fam(key, label, group, mode, city, office, **kw):
 
 
 FAMILIES = [
-    # --- Freising (owner only) -------------------------------------------------
-    _fam("FS-??-1", "FS ?? 1  (any two letters, number 1)", "FS", "letters", "FS", FS_OFFICE, number="1"),
-    _fam("FS-SK-?", "FS SK ?  (single-digit)", "FS", "numbers", "FS", FS_OFFICE, letters="SK"),
-    _fam("FS-KH-?", "FS KH ?  (single-digit)", "FS", "numbers", "FS", FS_OFFICE, letters="KH"),
-    _fam("FS-ST-?", "FS ST ?  (single-digit)", "FS", "numbers", "FS", FS_OFFICE, letters="ST"),
-    _fam("FS-KO-?", "FS KO ?  (single-digit)", "FS", "numbers", "FS", FS_OFFICE, letters="KO"),
-    _fam("FS-RT-?", "FS RT ?  (single-digit)", "FS", "numbers", "FS", FS_OFFICE, letters="RT"),
-    _fam("FS-OO-?", "FS OO ?  (single-digit)", "FS", "numbers", "FS", FS_OFFICE, letters="OO"),
-    _fam("FS-ZZ-?", "FS ZZ ?  (single-digit)", "FS", "numbers", "FS", FS_OFFICE, letters="ZZ"),
-    _fam("FS-YY-?", "FS YY ?  (single-digit)", "FS", "numbers", "FS", FS_OFFICE, letters="YY"),
-    _fam("FS-XX-?", "FS XX ?  (single-digit)", "FS", "numbers", "FS", FS_OFFICE, letters="XX"),
+    # --- Freising (owner only) -- NUMBER 1 ONLY --------------------------------
+    _fam("FS-SK-1", "FS SK 1  (number 1)", "FS", "numbers", "FS", FS_OFFICE, letters="SK", numbers=["1"]),
     # --- Esslingen + Nuertingen (owner + Emil) -- NUMBER 1 ONLY -----------------
     _fam("ES-AZ-1", "ES AZ 1  (number 1)", "ESNT", "digits", "ES", ES_OFFICE, letters="AZ", digits=["1"]),
     _fam("ES-EH-1", "ES EH 1  (number 1)", "ESNT", "digits", "ES", ES_OFFICE, letters="EH", digits=["1"]),
@@ -76,6 +67,11 @@ AUDIENCES = [
 
 def _num_of(plate):
     return int(plate.rsplit("-", 1)[1])
+
+
+def _watched(fam):
+    """Digits a numbers/digits family watches; default: every single digit."""
+    return fam.get("digits" if fam["mode"] == "digits" else "numbers", SINGLE_DIGITS)
 
 
 def load_state():
@@ -101,13 +97,14 @@ def _family_available(fam, session):
     if fam["mode"] == "letters":
         pairs = checker.available_letters(fam["number"], session=session, city=c, office_id=o)
         return sorted(f"{c}-{p}-{fam['number']}" for p in pairs)
-    if fam["mode"] == "numbers":          # ikfz wildcard, filter single-digit
+    if fam["mode"] == "numbers":          # ikfz wildcard, keep only watched digits
+        watched = _watched(fam)
         nums = [n for n in checker.available_numbers(fam["letters"], session=session, city=c, office_id=o)
-                if n in SINGLE_DIGITS]
+                if n in watched]
         return sorted((f"{c}-{fam['letters']}-{n}" for n in nums), key=_num_of)
     if fam["mode"] == "digits":           # per-digit probe (intelliform offices)
         free = []
-        for d in fam.get("digits", SINGLE_DIGITS):
+        for d in _watched(fam):
             ok, _ = checker.check_plate(fam["letters"], d, session=session, city=c, office_id=o)
             if ok:
                 free.append(d)
@@ -140,8 +137,7 @@ def snapshot_for(current, fams):
         avail = current.get(fam["key"], [])
         entry = {"label": fam["label"], "available": avail, "taken_single": None}
         if fam["mode"] in ("numbers", "digits"):
-            watched = ([int(d) for d in fam.get("digits", SINGLE_DIGITS)]
-                       if fam["mode"] == "digits" else range(1, 10))
+            watched = [int(d) for d in _watched(fam)]
             free = {_num_of(p) for p in avail}
             entry["taken_single"] = [f"{fam['city']}-{fam['letters']}-{d}" for d in watched if d not in free]
         snap.append(entry)
